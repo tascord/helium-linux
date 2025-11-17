@@ -42,7 +42,21 @@ RUN tar --strip-components=1 -xvzf /tmp/sccache.tar.gz \
     -C /usr/bin --wildcards '*/sccache'
 
 # create builder user
-RUN groupadd -g ${GID} builder && useradd -d /home/builder -g ${GID} -u ${UID} -m builder
+RUN if getent group ${GID} > /dev/null 2>&1; then \
+      GROUP_NAME=$(getent group ${GID} | cut -d: -f1); \
+    else \
+      groupadd -g ${GID} builder; \
+      GROUP_NAME=builder; \
+    fi && \
+    if getent passwd ${UID} > /dev/null 2>&1; then \
+      USER_NAME=$(getent passwd ${UID} | cut -d: -f1); \
+      usermod -d /home/builder -g ${GID} ${USER_NAME}; \
+    else \
+      useradd -d /home/builder -g ${GROUP_NAME} -u ${UID} -m builder; \
+      USER_NAME=builder; \
+    fi && \
+    usermod -aG sudo ${USER_NAME} && \
+    echo "${USER_NAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 USER builder
 WORKDIR /repo
